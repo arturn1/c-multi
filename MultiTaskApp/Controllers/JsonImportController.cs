@@ -39,21 +39,23 @@ public class JsonImportController : ControllerBase
         return Ok(new { message = "JSON import completed", logFile = logFilePath });
     }
 
-    private async Task ProcessFilesWithLimitedParallelism(string[] files, int maxDegreeOfParallelism, ConcurrentBag<string> taskLog)
-    {
-        var semaphore = new SemaphoreSlim(maxDegreeOfParallelism);
+private async Task ProcessFilesWithLimitedParallelism(string[] files, int maxDegreeOfParallelism, ConcurrentBag<string> taskLog)
+{
+    var semaphore = new SemaphoreSlim(maxDegreeOfParallelism);
 
-        var tasks = files.Select(async filePath =>
+    var tasks = files
+        .Chunk(500) // Process files in chunks of 500
+        .Select(async chunk =>
         {
             await semaphore.WaitAsync();
             try
             {
-                await _jsonImportService.ImportFromJsonFile(filePath);
-                taskLog.Add($"SUCCESS: {Path.GetFileName(filePath)}");
+                await _jsonImportService.ImportFromJsonFiles(chunk);
+                taskLog.Add($"SUCCESS: Processed batch of {chunk.Length} files.");
             }
             catch (Exception ex)
             {
-                taskLog.Add($"FAILURE: {Path.GetFileName(filePath)} - {ex.Message}");
+                taskLog.Add($"FAILURE: Error processing batch. Details: {ex.Message}");
             }
             finally
             {
@@ -61,6 +63,6 @@ public class JsonImportController : ControllerBase
             }
         });
 
-        await Task.WhenAll(tasks);
-    }
+    await Task.WhenAll(tasks);
+}
 }
