@@ -1,0 +1,6 @@
+@MultiTaskApp_HostAddress = http://localhost:5124
+
+GET {{MultiTaskApp_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
